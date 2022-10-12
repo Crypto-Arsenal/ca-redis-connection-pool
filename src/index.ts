@@ -14,31 +14,43 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-import {
-  createClient,
-  RedisClientOptions, RedisClientType,
-} from 'redis';
-import {createPool, Pool}  from 'generic-pool';
-import debug from 'debug';
+import { createClient, RedisClientOptions, RedisClientType } from "redis";
+import { createPool, Pool } from "generic-pool";
+import debug from "debug";
 
-const log = debug('redis-connection-pool');
+const log = debug("redis-connection-pool");
 const connectionPools = new Map();
 
 export interface RedisConnectionPoolConfig {
-  max_clients?: number
+  max_clients?: number;
   perform_checks?: boolean;
   redis?: RedisClientOptions;
 }
 
 type SingleCommandResult =
-  string | number | boolean | Buffer | { [x: string]: string | Buffer; } |
-  { key: string | Buffer; element: string | Buffer; } | (string | Buffer)[]
+  | string
+  | number
+  | boolean
+  | Buffer
+  | { [x: string]: string | Buffer }
+  | { key: string | Buffer; element: string | Buffer }
+  | (string | Buffer)[];
 
 /**
  * List of redis commands which have been implemented by the RedisConnectionPool class
  */
-type FuncNames = 'HDEL' | 'DEL' | 'GET' | 'HGETALL' | 'TTL' | 'INCR' |
-  'BRPOP' | 'HGET' | 'BLPOP' | 'EXPIRE' | 'KEYS';
+type FuncNames =
+  | "HDEL"
+  | "DEL"
+  | "GET"
+  | "HGETALL"
+  | "TTL"
+  | "INCR"
+  | "BRPOP"
+  | "HGET"
+  | "BLPOP"
+  | "EXPIRE"
+  | "KEYS";
 
 type IdentifierType = string;
 
@@ -75,7 +87,7 @@ export default async function redisConnectionPoolFactory(
   cfg: RedisConnectionPoolConfig = {}
 ): Promise<RedisConnectionPool> {
   let pool;
-  if (! connectionPools.has(uid)) {
+  if (!connectionPools.has(uid)) {
     pool = new RedisConnectionPool(cfg);
     connectionPools.set(uid, pool);
     await pool.init();
@@ -92,6 +104,7 @@ export class RedisConnectionPool {
   max_clients = 5;
   redis: RedisClientOptions;
   pool: Pool<RedisClientType>;
+  // @ts-ignore
   private initializing = false;
 
   constructor(cfg: RedisConnectionPoolConfig = {}) {
@@ -104,8 +117,10 @@ export class RedisConnectionPool {
    *
    * @param key - The list key
    */
-  async blpop(key: string): Promise<{key: string, element: SingleCommandResult}> {
-    return await this.getFuncs('BLPOP', key);
+  async blpop(
+    key: string
+  ): Promise<{ key: string; element: SingleCommandResult }> {
+    return await this.getFuncs("BLPOP", key);
   }
 
   /**
@@ -113,8 +128,10 @@ export class RedisConnectionPool {
    *
    * @param key - The list key
    */
-  async brpop(key: string): Promise<{key: string, element: SingleCommandResult}> {
-    return await this.getFuncs('BRPOP', key);
+  async brpop(
+    key: string
+  ): Promise<{ key: string; element: SingleCommandResult }> {
+    return await this.getFuncs("BRPOP", key);
   }
 
   /**
@@ -123,7 +140,7 @@ export class RedisConnectionPool {
    * @param key - The key of the value you wish to delete
    */
   async del(key: string): Promise<number> {
-    return await this.singleCommand('DEL', [key]) as number;
+    return (await this.singleCommand("DEL", [key])) as number;
   }
 
   /**
@@ -133,7 +150,7 @@ export class RedisConnectionPool {
    * @param ttl - TTL in seconds
    */
   async expire(key: string, ttl: number): Promise<number> {
-    return await this.singleCommand('EXPIRE', [key, ttl]) as number;
+    return (await this.singleCommand("EXPIRE", [key, ttl])) as number;
   }
 
   /**
@@ -142,7 +159,7 @@ export class RedisConnectionPool {
    * @param key - The key of the value you wish to get
    */
   async get(key: string): Promise<string> {
-    return await this.getFuncs<string>('GET', key);
+    return await this.getFuncs<string>("GET", key);
   }
 
   /**
@@ -152,7 +169,7 @@ export class RedisConnectionPool {
    * @param fields - Array of additional field names to be deleted
    */
   async hdel(key: string, fields: Array<string>): Promise<number> {
-    return await this.singleCommand('HDEL', [key].concat(fields)) as number;
+    return (await this.singleCommand("HDEL", [key].concat(fields))) as number;
   }
 
   /**
@@ -162,7 +179,7 @@ export class RedisConnectionPool {
    * @param field - The field name to retrieve
    */
   async hget(key: string, field: string): Promise<string> {
-    return await this.getFuncs<string>('HGET', key, field);
+    return await this.getFuncs<string>("HGET", key, field);
   }
 
   /**
@@ -170,8 +187,8 @@ export class RedisConnectionPool {
    *
    * @param key - The key of the hash you wish to get
    */
-  async hgetall(key: string): Promise<{[index: string]: string}> {
-    return await this.getFuncs<{[index: string]: string}>('HGETALL', key);
+  async hgetall(key: string): Promise<{ [index: string]: string }> {
+    return await this.getFuncs<{ [index: string]: string }>("HGETALL", key);
   }
 
   /**
@@ -194,7 +211,7 @@ export class RedisConnectionPool {
    * @param key - A key whose value you wish to increment
    */
   async incr(key: string): Promise<number> {
-    return await this.getFuncs<number>('INCR', key);
+    return await this.getFuncs<number>("INCR", key);
   }
 
   /**
@@ -203,37 +220,45 @@ export class RedisConnectionPool {
   async init(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    this.pool = createPool({
-      create: async () => {
-        log('create');
-        if (this.initializing) {
-          log(
-            'Create method already called. (Redis config error? ' +
-            'or maybe you forgot to await the init function?)');
-          throw Error(
-            'Create method already called. (Redis config error? ' +
-            'or maybe you forgot to await the init function?)');
-        } else {
-          this.initializing = true;
-        }
-        const client = createClient(this.redis);
-        client.on('error', (err) => {
-          throw new Error(err);
-        });
-        client.on('ready', () => {
-          log('ready');
-        });
-        log('connecting');
-        await client.connect();
-        this.initializing = false;
-        return client;
+    this.pool = createPool(
+      {
+        create: function () {
+          return new Promise(async (resolve, reject) => {
+            log("create");
+            if (this.initializing) {
+              log(
+                "Create method already called. (Redis config error? " +
+                  "or maybe you forgot to await the init function?)"
+              );
+              throw Error(
+                "Create method already called. (Redis config error? " +
+                  "or maybe you forgot to await the init function?)"
+              );
+            } else {
+              this.initializing = true;
+            }
+            const client = createClient(this.redis);
+            client.on("error", (err) => {
+              reject(err);
+            });
+            client.on("ready", () => {
+              log("ready");
+            });
+            log("connecting");
+            await client.connect();
+            this.initializing = false;
+            // @ts-ignore
+            resolve(client);
+          });
+        },
+        destroy: async (client) => {
+          await client.quit();
+        },
       },
-      destroy: async (client) => {
-        await client.quit();
+      {
+        max: this.max_clients,
       }
-    }, {
-      max: this.max_clients
-    });
+    );
   }
 
   /**
@@ -242,7 +267,7 @@ export class RedisConnectionPool {
    * @param key - The prefix of the keys to return
    */
   async keys(key: string): Promise<Array<string>> {
-    return await this.singleCommand('KEYS', [key]) as Array<string>;
+    return (await this.singleCommand("KEYS", [key])) as Array<string>;
   }
 
   /**
@@ -283,7 +308,10 @@ export class RedisConnectionPool {
    *  sendCommand('ECHO', ['Hello Redis'] )
    *
    */
-  async sendCommand(command_name: string, args: Array<string>): Promise<SingleCommandResult> {
+  async sendCommand(
+    command_name: string,
+    args: Array<string>
+  ): Promise<SingleCommandResult> {
     return await this.singleCommand(command_name as FuncNames, args);
   }
 
@@ -294,9 +322,13 @@ export class RedisConnectionPool {
    * @param data - Value to assign to key
    * @param ttl - TTL (Time to Live) in seconds
    */
-  async set(key: string, data: string|number, ttl = 0): Promise<string|null> {
+  async set(
+    key: string,
+    data: string | number,
+    ttl = 0
+  ): Promise<string | null> {
     const client = await this.pool.acquire();
-    const res = client.SET(key, data, { "EX": ttl });
+    const res = client.SET(key, data, { EX: ttl });
     await this.pool.release(client);
     return res;
   }
@@ -315,7 +347,7 @@ export class RedisConnectionPool {
    * @param {string} key - A key whose TTL(time-to-expire) will be returned
    */
   async ttl(key: string): Promise<number> {
-    return await this.getFuncs<number>('TTL', key);
+    return await this.getFuncs<number>("TTL", key);
   }
 
   private async singleCommand(
@@ -335,12 +367,16 @@ export class RedisConnectionPool {
   ): Promise<T> {
     const client = await this.pool.acquire();
     let res;
-    if ((funcName === 'GET') || (funcName === 'HGETALL') ||
-      (funcName === 'TTL') || (funcName === 'INCR')) {
+    if (
+      funcName === "GET" ||
+      funcName === "HGETALL" ||
+      funcName === "TTL" ||
+      funcName === "INCR"
+    ) {
       res = await client[funcName](key);
-    } else if ((funcName === 'BLPOP') || (funcName === 'BRPOP')) {
+    } else if (funcName === "BLPOP" || funcName === "BRPOP") {
       res = await client[funcName](key, 0);
-    } else if (funcName === 'HGET') {
+    } else if (funcName === "HGET") {
       res = await client.HGET(key, field);
     }
     await this.pool.release(client);
