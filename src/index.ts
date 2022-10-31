@@ -112,6 +112,58 @@ export class RedisConnectionPool {
     this.redis = cfg.redis;
   }
 
+  _destroy = async (c) => {
+    try {
+      // console.log("destroy this  pool", new Date(), this.pool)
+      // await this.pool.drain()
+      await this.pool.clear();
+      console.log("pending", this.pool.pending, new Date());
+      console.log("spareResourceCapacity", this.pool.spareResourceCapacity);
+      console.log("size", this.pool.size);
+      console.log("available", this.pool.available);
+      // console.log("this.pool._availableObjects", this.pool._availableObjects)
+      // this.pool._waitingClientsQueue.dequeue()
+      // clear everything here
+      // @ts-ignore
+      for (let index = 0; index < this.pool._availableObjects.length; index++) {
+        // @ts-ignore
+        this.pool._availableObjects.shift();
+      }
+
+      // @ts-ignore
+      for (const poolResource of this.pool._allObjects) {
+        console.log(poolResource);
+        // @ts-ignore
+        console.log("this._resourceLoans", this.pool._resourceLoans);
+        await this.pool.destroy(poolResource.obj);
+      }
+
+      console.log(
+        "this.pool._availableObjects after",
+        // @ts-ignore
+        this.pool._availableObjects
+      );
+      console.log(
+        "this.pool.this.pool._allObjects after",
+        // @ts-ignore
+        this.pool._allObjects
+      );
+
+      // console.log("destroy this  pool result", new Date(), this.pool)
+      // 2022-10-13T09:06:32.815Z
+    } catch (err) {
+      console.log("this.pool.destroy() err", err);
+      // this.pool._waitingClientsQueue.dequeue().resolve()
+    }
+    // try {
+    //     console.log("disconect", new Date())
+    //     // await c.disconnect();
+    // } catch (err) {
+    //     console.log("disconect", err)
+    // }
+    // console.log(this.pool)
+  };
+
   /**
    * Execute a redis BLPOP command
    *
@@ -220,45 +272,97 @@ export class RedisConnectionPool {
   async init(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
+    const that = this;
     this.pool = createPool(
       {
         create: function () {
-          return new Promise(async (resolve, reject) => {
-            log("create");
-            if (this.initializing) {
-              log(
-                "Create method already called. (Redis config error? " +
-                  "or maybe you forgot to await the init function?)"
-              );
-              throw Error(
-                "Create method already called. (Redis config error? " +
-                  "or maybe you forgot to await the init function?)"
-              );
-            } else {
-              this.initializing = true;
-            }
-            const client = createClient(this.redis);
-            client.on("error", (err) => {
-              reject(err);
-            });
-            client.on("ready", () => {
-              log("ready");
-            });
-            log("connecting");
-            await client.connect();
-            this.initializing = false;
-            // @ts-ignore
-            resolve(client);
-          });
+          console.log("creating ", new Date());
+          return new Promise(
+            (async (resolve, reject) => {
+              log("create");
+              if (this.initializing) {
+                log(
+                  "Create method already called. (Redis config error? " +
+                    "or maybe you forgot to await the init function?)"
+                );
+                throw Error(
+                  "Create method already called. (Redis config error? " +
+                    "or maybe you forgot to await the init function?)"
+                );
+              } else {
+                that.initializing = true;
+              }
+              const client = createClient(this.redis);
+              client.on("error", function handler() {
+                console.log("ERROR pleas client", that.initializing);
+                // throw new Error(err)
+                // console.log("client create error ")
+                // await client.quit()
+                if (that.initializing) {
+                  that.initializing = false;
+                  reject(client);
+                } else {
+                  that._destroy(client);
+                }
+                // unsubscribe
+                client.off("error", handler);
+              });
+              client.on("ready", () => {
+                log("ready");
+              });
+              log("connecting");
+              await client.connect();
+              that.initializing = false;
+              // @ts-ignore
+              resolve(client);
+            }).bind(that)
+          );
         },
         destroy: async (client) => {
-          await client.quit();
+          return new Promise(async (resolve, reject) => {
+            try {
+              await client.disconnect();
+            } catch (error) {
+              console.log("failed todestory", error);
+              reject("Bad ting");
+            }
+            console.log("destroy callbac done");
+            resolve(null);
+          });
+        },
+        // @ts-ignore
+        validate: async (resource) => {
+          const res = await resource.ping();
+          console.log("validdate", res);
+          return res;
         },
       },
       {
         max: this.max_clients,
+        min: 0,
+        // evictionRunIntervalMillis: 5000,
+        // idleTimeoutMillis: 1000,
+        acquireTimeoutMillis: 1000,
+        destroyTimeoutMillis: 1000,
+        // maxWaitingClients: 0,
+        // testOnBorrow: true
       }
     );
+
+    this.pool.on("factoryCreateError", (error) => {
+      console.log("factoryCreateError");
+      // error.disconnect()
+      // @ts-ignore
+      const sup = this.pool._waitingClientsQueue.dequeue();
+      // console.log(error)
+      // @ts-ignore
+      sup.reject(error);
+    });
+    this.pool.on("factoryDestroyError", (error) => {
+      console.log("factoryDestroyError", error);
+      // @ts-ignore
+      // this.pool._waitingClientsQueue.dequeue().reject(error);
+    });
   }
 
   /**
@@ -366,20 +470,28 @@ export class RedisConnectionPool {
     field: string | undefined = undefined
   ): Promise<T> {
     const client = await this.pool.acquire();
-    let res;
-    if (
-      funcName === "GET" ||
-      funcName === "HGETALL" ||
-      funcName === "TTL" ||
-      funcName === "INCR"
-    ) {
-      res = await client[funcName](key);
-    } else if (funcName === "BLPOP" || funcName === "BRPOP") {
-      res = await client[funcName](key, 0);
-    } else if (funcName === "HGET") {
-      res = await client.HGET(key, field);
+    try {
+      let res;
+      if (
+        funcName === "GET" ||
+        funcName === "HGETALL" ||
+        funcName === "TTL" ||
+        funcName === "INCR"
+      ) {
+        res = await client[funcName](key);
+      } else if (funcName === "BLPOP" || funcName === "BRPOP") {
+        res = await client[funcName](key, 0);
+      } else if (funcName === "HGET") {
+        res = await client.HGET(key, field);
+      }
+      return res;
+    } catch {
+      this.pool.release(client);
+      await this.pool.destroy(client);
+      return null;
+    } finally {
+      await this.pool.release(client);
+      // console.log("done", this.pool)
     }
-    await this.pool.release(client);
-    return res;
   }
 }

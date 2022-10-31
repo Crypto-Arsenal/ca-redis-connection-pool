@@ -85,6 +85,51 @@ class RedisConnectionPool {
         this.max_clients = 5;
         // @ts-ignore
         this.initializing = false;
+        this._destroy = (c) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                // console.log("destroy this  pool", new Date(), this.pool)
+                // await this.pool.drain()
+                yield this.pool.clear();
+                console.log("pending", this.pool.pending, new Date());
+                console.log("spareResourceCapacity", this.pool.spareResourceCapacity);
+                console.log("size", this.pool.size);
+                console.log("available", this.pool.available);
+                // console.log("this.pool._availableObjects", this.pool._availableObjects)
+                // this.pool._waitingClientsQueue.dequeue()
+                // clear everything here
+                // @ts-ignore
+                for (let index = 0; index < this.pool._availableObjects.length; index++) {
+                    // @ts-ignore
+                    this.pool._availableObjects.shift();
+                }
+                // @ts-ignore
+                for (const poolResource of this.pool._allObjects) {
+                    console.log(poolResource);
+                    // @ts-ignore
+                    console.log("this._resourceLoans", this.pool._resourceLoans);
+                    yield this.pool.destroy(poolResource.obj);
+                }
+                console.log("this.pool._availableObjects after", 
+                // @ts-ignore
+                this.pool._availableObjects);
+                console.log("this.pool.this.pool._allObjects after", 
+                // @ts-ignore
+                this.pool._allObjects);
+                // console.log("destroy this  pool result", new Date(), this.pool)
+                // 2022-10-13T09:06:32.815Z
+            }
+            catch (err) {
+                console.log("this.pool.destroy() err", err);
+                // this.pool._waitingClientsQueue.dequeue().resolve()
+            }
+            // try {
+            //     console.log("disconect", new Date())
+            //     // await c.disconnect();
+            // } catch (err) {
+            //     console.log("disconect", err)
+            // }
+            // console.log(this.pool)
+        });
         this.max_clients = cfg.max_clients || this.max_clients;
         this.redis = cfg.redis;
     }
@@ -203,9 +248,11 @@ class RedisConnectionPool {
         return __awaiter(this, void 0, void 0, function* () {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
+            const that = this;
             this.pool = (0, generic_pool_1.createPool)({
                 create: function () {
-                    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                    console.log("creating ", new Date());
+                    return new Promise(((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                         log("create");
                         if (this.initializing) {
                             log("Create method already called. (Redis config error? " +
@@ -214,27 +261,76 @@ class RedisConnectionPool {
                                 "or maybe you forgot to await the init function?)");
                         }
                         else {
-                            this.initializing = true;
+                            that.initializing = true;
                         }
                         const client = (0, redis_1.createClient)(this.redis);
-                        client.on("error", (err) => {
-                            reject(err);
+                        client.on("error", function handler() {
+                            console.log("ERROR pleas client", that.initializing);
+                            // throw new Error(err)
+                            // console.log("client create error ")
+                            // await client.quit()
+                            if (that.initializing) {
+                                that.initializing = false;
+                                reject(client);
+                            }
+                            else {
+                                that._destroy(client);
+                            }
+                            // unsubscribe
+                            client.off("error", handler);
                         });
                         client.on("ready", () => {
                             log("ready");
                         });
                         log("connecting");
                         yield client.connect();
-                        this.initializing = false;
+                        that.initializing = false;
                         // @ts-ignore
                         resolve(client);
-                    }));
+                    })).bind(that));
                 },
                 destroy: (client) => __awaiter(this, void 0, void 0, function* () {
-                    yield client.quit();
+                    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                        try {
+                            yield client.disconnect();
+                        }
+                        catch (error) {
+                            console.log("failed todestory", error);
+                            reject("Bad ting");
+                        }
+                        console.log("destroy callbac done");
+                        resolve(null);
+                    }));
+                }),
+                // @ts-ignore
+                validate: (resource) => __awaiter(this, void 0, void 0, function* () {
+                    const res = yield resource.ping();
+                    console.log("validdate", res);
+                    return res;
                 }),
             }, {
                 max: this.max_clients,
+                min: 0,
+                // evictionRunIntervalMillis: 5000,
+                // idleTimeoutMillis: 1000,
+                acquireTimeoutMillis: 1000,
+                destroyTimeoutMillis: 1000,
+                // maxWaitingClients: 0,
+                // testOnBorrow: true
+            });
+            this.pool.on("factoryCreateError", (error) => {
+                console.log("factoryCreateError");
+                // error.disconnect()
+                // @ts-ignore
+                const sup = this.pool._waitingClientsQueue.dequeue();
+                // console.log(error)
+                // @ts-ignore
+                sup.reject(error);
+            });
+            this.pool.on("factoryDestroyError", (error) => {
+                console.log("factoryDestroyError", error);
+                // @ts-ignore
+                // this.pool._waitingClientsQueue.dequeue().reject(error);
             });
         });
     }
@@ -338,21 +434,31 @@ class RedisConnectionPool {
     getFuncs(funcName, key, field = undefined) {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield this.pool.acquire();
-            let res;
-            if (funcName === "GET" ||
-                funcName === "HGETALL" ||
-                funcName === "TTL" ||
-                funcName === "INCR") {
-                res = yield client[funcName](key);
+            try {
+                let res;
+                if (funcName === "GET" ||
+                    funcName === "HGETALL" ||
+                    funcName === "TTL" ||
+                    funcName === "INCR") {
+                    res = yield client[funcName](key);
+                }
+                else if (funcName === "BLPOP" || funcName === "BRPOP") {
+                    res = yield client[funcName](key, 0);
+                }
+                else if (funcName === "HGET") {
+                    res = yield client.HGET(key, field);
+                }
+                return res;
             }
-            else if (funcName === "BLPOP" || funcName === "BRPOP") {
-                res = yield client[funcName](key, 0);
+            catch (_a) {
+                this.pool.release(client);
+                yield this.pool.destroy(client);
+                return null;
             }
-            else if (funcName === "HGET") {
-                res = yield client.HGET(key, field);
+            finally {
+                yield this.pool.release(client);
+                // console.log("done", this.pool)
             }
-            yield this.pool.release(client);
-            return res;
         });
     }
 }

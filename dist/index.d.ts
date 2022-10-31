@@ -67,6 +67,7 @@ export declare class RedisConnectionPool {
     pool: Pool<RedisClientType>;
     private initializing;
     constructor(cfg?: RedisConnectionPoolConfig);
+    _destroy: (c: any) => Promise<void>;
     /**
      * Execute a redis BLPOP command
      *
