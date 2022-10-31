@@ -61,7 +61,7 @@ export default function redisConnectionPoolFactory(uid: IdentifierType, cfg?: Re
 /**
  * RedisConnectionPool
  */
-export declare class RedisConnectionPool {
+declare class RedisConnectionPool {
     max_clients: number;
     redis: RedisClientOptions;
     pool: Pool<RedisClientType>;
@@ -199,4 +199,4 @@ export declare class RedisConnectionPool {
     private singleCommand;
     private getFuncs;
 }
-export {};
+export { RedisConnectionPool };

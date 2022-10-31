@@ -100,7 +100,7 @@ export default async function redisConnectionPoolFactory(
 /**
  * RedisConnectionPool
  */
-export class RedisConnectionPool {
+class RedisConnectionPool {
   max_clients = 5;
   redis: RedisClientOptions;
   pool: Pool<RedisClientType>;
@@ -495,3 +495,5 @@ export class RedisConnectionPool {
     }
   }
 }
+
+export { RedisConnectionPool };
