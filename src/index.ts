@@ -89,6 +89,7 @@ export default async function redisConnectionPoolFactory(
   let pool;
   if (!connectionPools.has(uid)) {
     pool = new RedisConnectionPool(cfg);
+    console.log(pool);
     connectionPools.set(uid, pool);
     await pool.init();
   } else {
@@ -100,7 +101,7 @@ export default async function redisConnectionPoolFactory(
 /**
  * RedisConnectionPool
  */
-class RedisConnectionPool {
+export class RedisConnectionPool {
   max_clients = 5;
   redis: RedisClientOptions;
   pool: Pool<RedisClientType>;
@@ -132,22 +133,22 @@ class RedisConnectionPool {
 
       // @ts-ignore
       for (const poolResource of this.pool._allObjects) {
-        console.log(poolResource);
+        // console.log(poolResource);
         // @ts-ignore
-        console.log("this._resourceLoans", this.pool._resourceLoans);
+        // console.log("this._resourceLoans", this.pool._resourceLoans);
         await this.pool.destroy(poolResource.obj);
       }
 
-      console.log(
-        "this.pool._availableObjects after",
-        // @ts-ignore
-        this.pool._availableObjects
-      );
-      console.log(
-        "this.pool.this.pool._allObjects after",
-        // @ts-ignore
-        this.pool._allObjects
-      );
+      // console.log(
+      //   "this.pool._availableObjects after",
+      //   // @ts-ignore
+      //   this.pool._availableObjects
+      // );
+      // console.log(
+      //   "this.pool.this.pool._allObjects after",
+      //   // @ts-ignore
+      //   this.pool._allObjects
+      // );
 
       // console.log("destroy this  pool result", new Date(), this.pool)
       // 2022-10-13T09:06:32.815Z
@@ -293,7 +294,7 @@ class RedisConnectionPool {
                 that.initializing = true;
               }
               const client = createClient(this.redis);
-              client.on("error", function handler() {
+              client?.on("error", function handler() {
                 console.log("ERROR pleas client", that.initializing);
                 // throw new Error(err)
                 // console.log("client create error ")
@@ -307,7 +308,7 @@ class RedisConnectionPool {
                 // unsubscribe
                 client.off("error", handler);
               });
-              client.on("ready", () => {
+              client?.on("ready", () => {
                 log("ready");
               });
               log("connecting");
@@ -323,17 +324,17 @@ class RedisConnectionPool {
             try {
               await client.disconnect();
             } catch (error) {
-              console.log("failed todestory", error);
-              reject("Bad ting");
+              console.log("failed to destory", error);
+              reject("failed to destory");
             }
-            console.log("destroy callbac done");
+            console.log("destroy callback done");
             resolve(null);
           });
         },
         // @ts-ignore
         validate: async (resource) => {
           const res = await resource.ping();
-          console.log("validdate", res);
+          // console.log("validdate", res);
           return res;
         },
       },
@@ -345,24 +346,27 @@ class RedisConnectionPool {
         acquireTimeoutMillis: 1000,
         destroyTimeoutMillis: 1000,
         // maxWaitingClients: 0,
-        // testOnBorrow: true
+        // testOnBorrow: truef
       }
     );
 
-    this.pool.on("factoryCreateError", (error) => {
-      console.log("factoryCreateError");
-      // error.disconnect()
-      // @ts-ignore
-      const sup = this.pool._waitingClientsQueue.dequeue();
-      // console.log(error)
-      // @ts-ignore
-      sup.reject(error);
-    });
-    this.pool.on("factoryDestroyError", (error) => {
-      console.log("factoryDestroyError", error);
-      // @ts-ignore
-      // this.pool._waitingClientsQueue.dequeue().reject(error);
-    });
+    this.pool.on &&
+      this.pool.on("factoryCreateError", (error) => {
+        console.log("factoryCreateError", error);
+        // error.disconnect()
+        // @ts-ignore
+        const sup = this.pool._waitingClientsQueue.dequeue();
+        // console.log(error)
+        // @ts-ignore
+        sup.reject(error);
+      });
+
+    this.pool.on &&
+      this.pool.on("factoryDestroyError", (error) => {
+        console.log("factoryDestroyError", error);
+        // @ts-ignore
+        // this.pool._waitingClientsQueue.dequeue().reject(error);
+      });
   }
 
   /**
@@ -495,5 +499,3 @@ class RedisConnectionPool {
     }
   }
 }
-
-export { RedisConnectionPool };
