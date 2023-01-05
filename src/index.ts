@@ -312,7 +312,16 @@ export class RedisConnectionPool {
                 log("ready");
               });
               log("connecting");
-              await client.connect();
+              try {
+                await client.connect();
+              } catch (err) {
+                log("connecting err", err);
+                that.initializing = false;
+                that._destroy(client);
+                reject(client);
+                return;
+              }
+
               that.initializing = false;
               // @ts-ignore
               resolve(client);
