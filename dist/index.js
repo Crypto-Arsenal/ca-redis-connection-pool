@@ -269,8 +269,8 @@ class RedisConnectionPool {
                             that.initializing = true;
                         }
                         const client = (0, redis_1.createClient)(this.redis);
-                        client === null || client === void 0 ? void 0 : client.on("error", function handler() {
-                            console.log("ERROR pleas client", that.initializing);
+                        client === null || client === void 0 ? void 0 : client.on("error", function handler(err) {
+                            console.log("ERROR client", err);
                             // throw new Error(err)
                             // console.log("client create error ")
                             // await client.quit()
@@ -334,7 +334,7 @@ class RedisConnectionPool {
             });
             this.pool.on &&
                 this.pool.on("factoryCreateError", (error) => {
-                    console.log("factoryCreateError", error);
+                    console.log("factoryCreateError");
                     // error.disconnect()
                     // @ts-ignore
                     const sup = this.pool._waitingClientsQueue.dequeue();
