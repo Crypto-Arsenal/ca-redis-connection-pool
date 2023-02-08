@@ -268,7 +268,8 @@ class RedisConnectionPool {
                         else {
                             that.initializing = true;
                         }
-                        const client = (0, redis_1.createClient)(this.redis);
+                        console.log("this.redis createClient option", that.redis);
+                        const client = (0, redis_1.createClient)(that.redis);
                         client === null || client === void 0 ? void 0 : client.on("error", function handler(err) {
                             console.log("ERROR client", err);
                             // throw new Error(err)

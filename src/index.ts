@@ -293,7 +293,8 @@ export class RedisConnectionPool {
               } else {
                 that.initializing = true;
               }
-              const client = createClient(this.redis);
+              console.log("this.redis createClient option", that.redis);
+              const client = createClient(that.redis);
               client?.on("error", function handler(err) {
                 console.log("ERROR client", err);
                 // throw new Error(err)
