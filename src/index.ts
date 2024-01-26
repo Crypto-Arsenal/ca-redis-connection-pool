@@ -443,7 +443,7 @@ export class RedisConnectionPool {
   async set(
     key: string,
     data: string | number,
-    ttl = 0
+    ttl: number = undefined
   ): Promise<string | null> {
     const client = await this.pool.acquire();
     const res = client.SET(key, data, { EX: ttl });

@@ -413,7 +413,7 @@ class RedisConnectionPool {
      * @param data - Value to assign to key
      * @param ttl - TTL (Time to Live) in seconds
      */
-    set(key, data, ttl = 0) {
+    set(key, data, ttl = undefined) {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield this.pool.acquire();
             const res = client.SET(key, data, { EX: ttl });
