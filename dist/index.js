@@ -67,7 +67,7 @@ function redisConnectionPoolFactory(uid, cfg = {}) {
         let pool;
         if (!connectionPools.has(uid)) {
             pool = new RedisConnectionPool(cfg);
-            console.log(pool);
+            console.log(JSON.stringify(pool));
             connectionPools.set(uid, pool);
             yield pool.init();
         }
@@ -91,10 +91,10 @@ class RedisConnectionPool {
                 // console.log("destroy this  pool", new Date(), this.pool)
                 // await this.pool.drain()
                 yield this.pool.clear();
-                console.log("pending", this.pool.pending, new Date());
-                console.log("spareResourceCapacity", this.pool.spareResourceCapacity);
-                console.log("size", this.pool.size);
-                console.log("available", this.pool.available);
+                console.log("pending", JSON.stringify(this.pool.pending), new Date());
+                console.log("spareResourceCapacity", JSON.stringify(this.pool.spareResourceCapacity));
+                console.log("size", JSON.stringify(this.pool.size));
+                console.log("available", JSON.stringify(this.pool.available));
                 // console.log("this.pool._availableObjects", this.pool._availableObjects)
                 // this.pool._waitingClientsQueue.dequeue()
                 // clear everything here
@@ -268,7 +268,7 @@ class RedisConnectionPool {
                         else {
                             that.initializing = true;
                         }
-                        console.log("this.redis createClient option", that.redis);
+                        console.log("this.redis createClient option", JSON.stringify(that.redis));
                         const client = (0, redis_1.createClient)(that.redis);
                         client === null || client === void 0 ? void 0 : client.on("error", function handler(err) {
                             console.log("ERROR client", err);
