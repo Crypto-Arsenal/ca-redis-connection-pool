@@ -22,13 +22,13 @@ export interface RedisConnectionPoolConfig {
     perform_checks?: boolean;
     redis?: RedisClientOptions;
 }
-type SingleCommandResult = string | number | boolean | Buffer | {
+declare type SingleCommandResult = string | number | boolean | Buffer | {
     [x: string]: string | Buffer;
 } | {
     key: string | Buffer;
     element: string | Buffer;
 } | (string | Buffer)[];
-type IdentifierType = string;
+declare type IdentifierType = string;
 /**
  * Function: redisConnectionPoolFactory
  *

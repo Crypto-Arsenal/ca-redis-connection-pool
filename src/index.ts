@@ -89,7 +89,6 @@ export default async function redisConnectionPoolFactory(
   let pool;
   if (!connectionPools.has(uid)) {
     pool = new RedisConnectionPool(cfg);
-    console.log(JSON.stringify(pool));
     connectionPools.set(uid, pool);
     await pool.init();
   } else {
@@ -280,7 +279,7 @@ export class RedisConnectionPool {
     this.pool = createPool(
       {
         create: function () {
-          console.log("creating ", new Date());
+          console.log("create");
           return new Promise(
             (async (resolve, reject) => {
               log("create");
@@ -296,10 +295,6 @@ export class RedisConnectionPool {
               } else {
                 that.initializing = true;
               }
-              console.log(
-                "this.redis createClient option",
-                JSON.stringify(that.redis)
-              );
               const client = createClient(that.redis);
               client?.on("error", function handler(err) {
                 console.log("ERROR client", err);

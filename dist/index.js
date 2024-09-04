@@ -67,7 +67,6 @@ function redisConnectionPoolFactory(uid, cfg = {}) {
         let pool;
         if (!connectionPools.has(uid)) {
             pool = new RedisConnectionPool(cfg);
-            console.log(JSON.stringify(pool));
             connectionPools.set(uid, pool);
             yield pool.init();
         }
@@ -256,7 +255,7 @@ class RedisConnectionPool {
             const that = this;
             this.pool = (0, generic_pool_1.createPool)({
                 create: function () {
-                    console.log("creating ", new Date());
+                    console.log("create");
                     return new Promise(((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                         log("create");
                         if (this.initializing) {
@@ -268,7 +267,6 @@ class RedisConnectionPool {
                         else {
                             that.initializing = true;
                         }
-                        console.log("this.redis createClient option", JSON.stringify(that.redis));
                         const client = (0, redis_1.createClient)(that.redis);
                         client === null || client === void 0 ? void 0 : client.on("error", function handler(err) {
                             console.log("ERROR client", err);
